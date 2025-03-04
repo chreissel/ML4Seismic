@@ -57,3 +57,4 @@ test_data = (test_data - mean) / std
 np.save('data/train_{}'.format(time), train_data)
 np.save('data/val_{}'.format(time), val_data)
 np.save('data/test_{}'.format(time), test_data)
+np.savez('data/utils_{}.npz'.format(time), mean=mean, std=std)
