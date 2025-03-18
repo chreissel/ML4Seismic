@@ -6,6 +6,7 @@ from gwpy.timeseries import TimeSeries
 # load file (might be changed for different times)
 file = scipy.io.loadmat('MLdata_L1HAM5_1381528818_4000_matrix_v2.mat')
 time = 1381528818
+norm = False
 data = file['data_matrix']
 
 # define channels here
@@ -47,14 +48,15 @@ val_data = data_prep_[:, int(4*n_sec*train_frac):int(4*n_sec*(train_frac+val_fra
 test_data = data_prep_[:, int(4*n_sec*(train_frac+val_frac)):int(4*n_sec)]
 
 # normalize data for training purposes
-mean = train_data.mean(axis=-1, keepdims=True)
-std = train_data.std(axis=-1, keepdims=True)
-train_data = (train_data - mean) / std
-val_data = (val_data - mean) / std
-test_data = (test_data - mean) / std
+if norm:
+    mean = train_data.mean(axis=-1, keepdims=True)
+    std = train_data.std(axis=-1, keepdims=True)
+    train_data = (train_data - mean) / std
+    val_data = (val_data - mean) / std
+    test_data = (test_data - mean) / std
+    np.savez('data/utils_{}.npz'.format(time), mean=mean, std=std)
 
 # save data in numpy format
 np.save('data/train_{}'.format(time), train_data)
 np.save('data/val_{}'.format(time), val_data)
 np.save('data/test_{}'.format(time), test_data)
-np.savez('data/utils_{}.npz'.format(time), mean=mean, std=std)
