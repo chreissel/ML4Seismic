@@ -43,6 +43,7 @@ val_frac = 0.2
 test_frac = 0.2
 
 data_prep_ = np.transpose(data_prep)
+
 train_data = data_prep_[:, :int(4*n_sec*train_frac)]
 val_data = data_prep_[:, int(4*n_sec*train_frac):int(4*n_sec*(train_frac+val_frac))]
 test_data = data_prep_[:, int(4*n_sec*(train_frac+val_frac)):int(4*n_sec)]
