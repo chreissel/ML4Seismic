@@ -3,13 +3,38 @@ import torch
 import torch.nn.functional as F
 from .s4d import S4D
 
+class MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dims, output_dim, dropout=0.0, activation='relu', output_activation=None, input_activation=None):
+        super().__init__()
+        layers = []
+        if input_activation is not None:
+            layers.append(input_activation())
+        current_dim = input_dim
+
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Linear(current_dim, hidden_dim))
+            layers.append(activations[activation])
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
+            current_dim = hidden_dim
+
+        layers.append(nn.Linear(current_dim, output_dim))
+        if output_activation is not None:
+            layers.append(activations[output_activation])
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.network(x)
+
+
 dropout_fn = nn.Dropout2d
 class S4DModel(nn.Module):
-    def __init__(self, d_input, d_output, d_model=256, n_layers=4, dropout=0.2, prenorm=False):
+    def __init__(self, d_input, d_output, d_model=256, n_layers=4, dropout=0.2, prenorm=False, maxpool=False):
         super().__init__()
 
         self.d_output = d_output
         self.prenorm = prenorm
+        self.maxpool = maxpool
 
         self.encoder = nn.Linear(d_input, d_model)
         # Stack S4 layers as residual blocks
@@ -45,6 +70,9 @@ class S4DModel(nn.Module):
                 # Postnorm
                 x = norm(x.transpose(-1, -2)).transpose(-1, -2)
         x = x.transpose(-1, -2)
+        if self.maxpool:
+            # Pooling: average pooling over the sequence length
+            x = x.mean(dim=1)
         # Decode the outputs
         x = self.decoder(x)  # (B, d_model) -> (B, d_output)
         return x
