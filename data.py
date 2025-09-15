@@ -56,7 +56,6 @@ class TimeSeriesSegmentDataset(Dataset):
         # convert into Tensor
         target = torch.Tensor(target)
         aux = torch.Tensor(aux)
-        aux = aux.transpose(-1, -2)
 
         return aux, target
 
