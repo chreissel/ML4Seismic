@@ -34,7 +34,7 @@ optimizer:
 lr_scheduler:
   class_path: torch.optim.lr_scheduler.ExponentialLR
   init_args:
-    gamma: 0.99
+    gamma: 0.75
     
 model:
   class_path: model.LitModel
@@ -46,7 +46,7 @@ model:
         init_args: 
            d_input: *d_input
            d_output: *d_output
-           d_model: 4
-           n_layers: 2
+           d_model: 64
+           n_layers: 8
            dropout: 0.0
            prenorm: False
