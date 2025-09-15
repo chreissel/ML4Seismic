@@ -37,7 +37,7 @@ lr_scheduler:
     gamma: 0.99
     
 model:
-  class_path: model.LitS4Model
+  class_path: model.LitModel
   init_args:
     d_input: &d_input 9
     d_output: &d_output 1

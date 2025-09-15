@@ -35,7 +35,7 @@ class LitModel(L.LightningModule):
         return optimizer, scheduler
 
     def training_step(self, batch, batch_idx, log=True):
-        X, y, _ = batch
+        X, y = batch
         loss = self.__loss__(X, y)
 
         if log:
@@ -50,7 +50,7 @@ class LitModel(L.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx, log=True):
-        X, y, _ = batch
+        X, y = batch
         loss = self.__loss__(X, y)
 
         if log:
