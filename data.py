@@ -52,8 +52,9 @@ class TimeSeriesSegmentDataset(Dataset):
         # separate into target strain and witnesses
         if self.causal:
             aux = data
-            target = self.data[:, idx_stop: idx_stop+stride].copy()
+            target = self.data[:, idx_stop-stride: idx_stop].copy()
             target = target[self.target_idx]
+            aux = np.delete(data, self.target_idx, axis=0)
         else:
             target = data[self.target_idx]
             target = target[:, np.newaxis]
@@ -89,13 +90,16 @@ class LitDataModule(GenericDataModule):
         self.save_hyperparameters()
 
     def train_dataloader(self):
-        loader = DataLoader(self.train_dataset,shuffle=False, drop_last=True, **self.loader_kwargs)
+        #loader = DataLoader(self.train_dataset,shuffle=False, drop_last=True, **self.loader_kwargs)
+        loader = DataLoader(self.train_dataset,shuffle=False, **self.loader_kwargs)
         return loader
 
     def val_dataloader(self):
-        loader = DataLoader(self.val_dataset, shuffle=False, drop_last=True, **self.loader_kwargs)
+        #loader = DataLoader(self.val_dataset, shuffle=False, drop_last=True, **self.loader_kwargs)
+        loader = DataLoader(self.val_dataset, shuffle=False, **self.loader_kwargs)
         return loader
 
     def test_dataloader(self):
-        loader = DataLoader(self.test_dataset, shuffle=False, drop_last=True, **self.loader_kwargs)
+        #loader = DataLoader(self.test_dataset, shuffle=False, drop_last=True, **self.loader_kwargs)
+        loader = DataLoader(self.test_dataset, shuffle=False, **self.loader_kwargs)
         return loader
