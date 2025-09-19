@@ -63,3 +63,30 @@ class LitModel(L.LightningModule):
                     prog_bar=True)
 
         return loss
+
+
+class LSTMForecast(L.LightningModule):
+    def __init__(self, input_size=1, hidden_size=64, num_layers=2, lr=0.001):
+        super(LSTMForecast, self).__init__()
+        self.save_hyperparameters()
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, 1)
+        self.loss_fn = nn.MSELoss()
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        return self.fc(out[:, -1, :])  # last time step
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = self.loss_fn(y_hat, y)
+        self.log("train/loss", loss, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = self.loss_fn(y_hat, y)
+        self.log("val/loss", loss, prog_bar=True)
+
