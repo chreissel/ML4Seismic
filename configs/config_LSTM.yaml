@@ -10,18 +10,22 @@ trainer:
     - class_path: lightning.pytorch.callbacks.EarlyStopping
       init_args:
         monitor: val/loss
-        patience: 5
+        patience: 15
         mode: min
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
   log_every_n_steps: 1
-  max_epochs: 80
+  max_epochs: 150
 
 data:
   class_path: data.LitDataModule
   init_args:
+    time: 1381528818      
+    seq_length: 240       # 60s window at 4 Hz (adjust as you like) - Was 120
+    target_index: 9       # GS13X index from data_prep ordering
+    normalize: false
     batch_size: 32
-    num_workers: 1
+    num_workers: 4
 
 optimizer:
   class_path: torch.optim.AdamW
@@ -31,11 +35,11 @@ optimizer:
 lr_scheduler:
   class_path: torch.optim.lr_scheduler.ExponentialLR
   init_args:
-    gamma: 0.1
+    gamma: 0.95
     
 model:
   class_path: model.LSTMForecast
   init_args:
       input_size: 1
-      hidden_size: 64
-      num_layers: 2
+      hidden_size: 128 # Was 64
+      num_layers: 3 # Was 2
