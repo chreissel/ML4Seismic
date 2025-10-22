@@ -59,7 +59,7 @@ data:
     seq_length: 240  # 60 seconds at 4 Hz
     predict_horizon: 4  # Predict 1 second (4 timesteps) ahead
     
-    normalize: false  # Change to false for raw data
+    normalize: True  # Change to false for raw data
     
     batch_size: 32
     num_workers: 4

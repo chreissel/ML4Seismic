@@ -215,7 +215,7 @@ class GS13PreProcessor:
         print(f"  Val:   {val_data.shape} ({self.val_frac:.1%})")
         print(f"  Test:  {test_data.shape} ({self.test_frac:.1%})")
         
-        # Normalize if requested (using training set statistics)
+        # Normalize if requested 
         if normalize:
             print("\nNormalizing data using training statistics...")
             mean = train_data.mean(axis=1, keepdims=True)
