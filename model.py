@@ -6,44 +6,46 @@ import lightning as L
 
 class LSTMForecast(L.LightningModule):
     """
-    LSTM model for causal forecasting of GS13.X from multi-channel input.
+    LSTM model for autoregressive forecasting of GS13 channels.
     
-    Input: All 10 channels (GND xyz, CPS xyz, CPSR xyz, GS13X)
-    Output: GS13.X value 1 second (4 timesteps) into the future
+    Input: All 15 channels (3 GND + 6 GS13 + 6 CPS)
+    Output: 6 GS13 values (X,Y,Z,RX,RY,RZ) 1 second (4 timesteps) into the future
     """
     
     def __init__(
         self,
-        input_size: int = 10,
+        input_size: int = 15,  # Will be set by config
         hidden_size: int = 128,
         num_layers: int = 3,
         dropout: float = 0.2,
-        output_size: int = 1,
+        output_size: int = 6,  # Will be set by config
         learning_rate: float = 1e-3,
     ):
         """
         Args:
-            input_size: Number of input features (10 channels)
+            input_size: Number of input features (15 channels)
             hidden_size: LSTM hidden size
             num_layers: Number of LSTM layers
             dropout: Dropout rate between LSTM layers
-            output_size: Number of outputs (1 for GS13.X)
+            output_size: Number of outputs (6 for GS13 channels)
             learning_rate: Learning rate for optimizer
         """
         super().__init__()
+        # input_size and output_size will be populated by LightningCLI
+        # from your .yaml config file.
         self.save_hyperparameters()
         
         # LSTM layers
         self.lstm = nn.LSTM(
-            input_size=input_size,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
+            input_size=self.hparams.input_size,
+            hidden_size=self.hparams.hidden_size,
+            num_layers=self.hparams.num_layers,
             batch_first=True,
-            dropout=dropout if num_layers > 1 else 0.0
+            dropout=dropout if self.hparams.num_layers > 1 else 0.0
         )
         
         # Output layer: maps LSTM hidden state to prediction
-        self.fc = nn.Linear(hidden_size, output_size)
+        self.fc = nn.Linear(self.hparams.hidden_size, self.hparams.output_size)
         
         # Loss function
         self.loss_fn = nn.MSELoss()
@@ -54,22 +56,30 @@ class LSTMForecast(L.LightningModule):
         
         Args:
             x: Input tensor of shape (batch_size, seq_length, input_size)
-               e.g., (32, 240, 10) for 60 seconds at 4Hz with 10 channels
+               e.g., (32, 240, 15) for 60 seconds at 4Hz with 15 channels
         
         Returns:
             Output tensor of shape (batch_size, output_size)
+            e.g., (32, 6)
         """
         # LSTM forward pass
+        # x shape: (batch_size, seq_length, 15)
         out, _ = self.lstm(x)
         
+        # out shape: (batch_size, seq_length, hidden_size)
+        
         # Take the last timestep's output
-        return self.fc(out[:, -1, :])
+        # out[:, -1, :] shape: (batch_size, hidden_size)
+        y_hat = self.fc(out[:, -1, :])
+        
+        # y_hat shape: (batch_size, 6)
+        return y_hat
     
     def training_step(self, batch, batch_idx):
         """Training step."""
-        x, y = batch
-        y_hat = self(x)
-        loss = self.loss_fn(y_hat, y)
+        x, y = batch  # x: (B, 240, 15), y: (B, 6)
+        y_hat = self(x) # y_hat: (B, 6)
+        loss = self.loss_fn(y_hat, y) # MSELoss compares (B, 6) and (B, 6) -> scalar
         
         # Log metrics
         self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -87,6 +97,7 @@ class LSTMForecast(L.LightningModule):
         
         # Additional metrics
         with torch.no_grad():
+            # torch.abs will work element-wise on (B, 6) tensors
             mae = torch.mean(torch.abs(y_hat - y))
             self.log("val/mae", mae, on_epoch=True)
         

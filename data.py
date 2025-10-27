@@ -77,7 +77,10 @@ class GS13PreProcessor:
         skip_seconds: int = 100,
         train_frac: float = 0.6,
         val_frac: float = 0.2,
-        output_dir: str = "data"
+        output_dir: str = "data",
+        ifo: str = "L1",
+        sts2: str = "ITMY",
+        chamber: str = "HAM5"
     ):
         """
         Args:
@@ -91,6 +94,9 @@ class GS13PreProcessor:
             train_frac: Fraction for training set (default: 0.6)
             val_frac: Fraction for validation set (default: 0.2)
             output_dir: Directory to save processed data (default: "data")
+            ifo: Interferometer prefix (e.g., "L1")
+            sts2: STS2 component (e.g., "ITMY")
+            chamber: Chamber name (e.g., "HAM5")
         """
         self.mat_file = mat_file
         self.time = time
@@ -104,19 +110,31 @@ class GS13PreProcessor:
         self.test_frac = 1.0 - train_frac - val_frac
         self.output_dir = output_dir
         
-        # Define all 10 channels in order
+        # Define all 15 channels.
         self.channels = [
-            'L1:ISI-GND_STS_ITMY_X_DQ',
-            'L1:ISI-GND_STS_ITMY_Y_DQ',
-            'L1:ISI-GND_STS_ITMY_Z_DQ',
-            'L1:ISI-HAM5_SCSUM_CPS_X_IN_DQ',
-            'L1:ISI-HAM5_SCSUM_CPS_Y_IN_DQ',
-            'L1:ISI-HAM5_SCSUM_CPS_Z_IN_DQ',
-            'L1:ISI-HAM5_BLND_CPSRX_IN1_DQ',
-            'L1:ISI-HAM5_BLND_CPSRY_IN1_DQ',
-            'L1:ISI-HAM5_BLND_CPSRZ_IN1_DQ',
-            'L1:ISI-HAM5_BLND_GS13X_IN1_DQ'
+            # GND Channels (Indices 0-2)
+            f"{ifo}:ISI-GND_STS_{sts2}_X_DQ", 
+            f"{ifo}:ISI-GND_STS_{sts2}_Y_DQ", 
+            f"{ifo}:ISI-GND_STS_{sts2}_Z_DQ",
+            # GS13 Channels (Indices 3-8)
+            f"{ifo}:ISI-{chamber}_BLND_GS13X_IN1_DQ", # 3
+            f"{ifo}:ISI-{chamber}_BLND_GS13Y_IN1_DQ", # 4
+            f"{ifo}:ISI-{chamber}_BLND_GS13Z_IN1_DQ", # 5
+            f"{ifo}:ISI-{chamber}_BLND_GS13RX_IN1_DQ", # 6
+            f"{ifo}:ISI-{chamber}_BLND_GS13RY_IN1_DQ", # 7
+            f"{ifo}:ISI-{chamber}_BLND_GS13RZ_IN1_DQ", # 8
+            # CPS Channels (Indices 9-14)
+            f"{ifo}:ISI-{chamber}_SCSUM_CPS_X_IN_DQ", 
+            f"{ifo}:ISI-{chamber}_SCSUM_CPS_Y_IN_DQ", 
+            f"{ifo}:ISI-{chamber}_SCSUM_CPS_Z_IN_DQ",
+            f"{ifo}:ISI-{chamber}_BLND_CPSRX_IN1_DQ", 
+            f"{ifo}:ISI-{chamber}_BLND_CPSRY_IN1_DQ", 
+            f"{ifo}:ISI-{chamber}_BLND_CPSRZ_IN1_DQ"
         ]
+        self.gs13_indices = {
+            'GS13X': 3, 'GS13Y': 4, 'GS13Z': 5,
+            'GS13RX': 6, 'GS13RY': 7, 'GS13RZ': 8
+        }
         
     def load_mat_file(self):
         """
@@ -127,7 +145,24 @@ class GS13PreProcessor:
         """
         print(f"Loading data from {self.mat_file}...")
         file = scipy.io.loadmat(self.mat_file)
-        data_matrix = file['data_matrix']
+        
+        # Check if 'data_matrix' exists, else try to find a matrix
+        if 'data_matrix' in file:
+            data_matrix = file['data_matrix']
+        else:
+            # Fallback: find the first non-metadata key with the right shape
+            valid_keys = [k for k, v in file.items() if not k.startswith('__') and isinstance(v, np.ndarray) and v.ndim == 2]
+            if not valid_keys:
+                raise ValueError("Could not find 'data_matrix' or any suitable data array in .mat file")
+            key = valid_keys[0]
+            print(f"Warning: 'data_matrix' not found. Using array '{key}' instead.")
+            data_matrix = file[key]
+
+        if data_matrix.shape[1] < len(self.channels):
+             raise ValueError(
+                f"Data matrix has only {data_matrix.shape[1]} columns, "
+                f"but {len(self.channels)} channels were defined."
+            )
         
         # Create dictionary mapping channels to data
         channel_data = {}
@@ -156,6 +191,9 @@ class GS13PreProcessor:
         """
         # Skip initial seconds for stability
         start_idx = self.skip_seconds * self.sample_rate
+        if start_idx >= len(data):
+            raise ValueError(f"skip_seconds ({self.skip_seconds}) is too large for data length ({len(data) / self.sample_rate:.2f}s)")
+        
         data_stable = data[start_idx:]
         
         # Convert to GWpy TimeSeries
@@ -190,13 +228,17 @@ class GS13PreProcessor:
         # Preprocess each channel
         print("\nPreprocessing channels...")
         processed_data = {}
+        min_len = float('inf')
         for i, channel in enumerate(self.channels, 1):
             processed_data[channel] = self.preprocess_channel(raw_data[channel], channel)
-            print(f"  [{i:2d}/10] {channel}: {len(processed_data[channel])} samples")
+            min_len = min(min_len, len(processed_data[channel]))
+            print(f"  [{i:2d}/{len(self.channels)}] {channel}: {len(processed_data[channel])} samples")
+        
+        print(f"\nAll channels will be truncated to shortest length: {min_len} samples")
         
         # Stack all channels: shape (n_channels, n_samples)
         all_channels_array = np.stack(
-            [processed_data[ch] for ch in self.channels], 
+            [processed_data[ch][:min_len] for ch in self.channels], 
             axis=0
         )
         print(f"\nStacked array shape: {all_channels_array.shape}")
@@ -265,14 +307,18 @@ class GS13PreProcessor:
         if normalize:
             print(f"  • {self.output_dir}/norm_stats_{self.time}.npz")
         print(f"{'='*70}")
+        print("\nChannel indices for reference:")
+        for name, idx in self.gs13_indices.items():
+            print(f"  • {name}: {idx}")
+        print(f"{'='*70}")
 
 
-class GS13CausalDataset(Dataset):
+class GS13ForecastDataset(Dataset):
     """
-    Dataset for causal prediction of GS13.X from all 10 channels.
+    Dataset for autoregressive forecasting.
     
-    Input: All 10 channels (sequence of length seq_length)
-    Target: GS13.X value predict_horizon steps into the future
+    Input: All 15 channels (3 GND + 6 GS13 + 6 CPS)
+    Target: All 6 GS13 channels, predict_horizon steps ahead
     """
     
     def __init__(
@@ -308,35 +354,42 @@ class GS13CausalDataset(Dataset):
                 f"Could not find {path}.\n"
                 f"Please run preprocessing first:\n"
                 f"  python data.py\n"
-                f"Or in Python:\n"
-                f"  from data import run_preprocessing\n"
-                f"  run_preprocessing()"
             )
         
-        # Load data: shape (10 channels, T samples)
-        # Channel 0-2: GND xyz
-        # Channel 3-5: CPS xyz
-        # Channel 6-8: CPSR xyz
-        # Channel 9: GS13X (our target)
-        self.data = np.load(path)  # (10, T)
+        # Load data: shape (15 channels, T samples)
+        self.data = np.load(path)  # (15, T)
+        
+        num_channels_loaded = self.data.shape[0]
+        if num_channels_loaded < 15:
+            print(f"Warning: Loaded data has only {num_channels_loaded} channels, expected 15.")
+            print("Ensure you have run preprocessing with the updated 15-channel list.")
+
+        # Define channel indices
+        # Input: All 15 channels
+        self.input_indices = list(range(num_channels_loaded))
+        # Target: The 6 GS13 channels (indices 3 through 8)
+        self.target_indices = list(range(3, 9))
         
         print(f"Loaded {split} data: {self.data.shape}")
+        print(f"  - Input channels: {len(self.input_indices)} (All channels)")
+        print(f"  - Target channels: {len(self.target_indices)} (GS13 channels, indices 3-8)")
+
         
         # Create sequences
         self.X, self.y = self._create_sequences()
         
         print(f"Created {len(self.X)} sequences for {split} set")
-        print(f"  Input shape: {self.X.shape}")
-        print(f"  Target shape: {self.y.shape}")
+        print(f"  Input shape (X): {self.X.shape}")
+        print(f"  Target shape (y): {self.y.shape}")
         
     def _create_sequences(self):
         """
-        Create input-output pairs for causal prediction.
+        Create input-output pairs for autoregressive forecasting.
         
         Returns:
             tuple: (X, y) where
-                X: (n_sequences, seq_length, 10) - input sequences
-                y: (n_sequences, 1) - target values
+                X: (n_sequences, seq_length, 15) - input sequences
+                y: (n_sequences, 6) - target values
         """
         T = self.data.shape[1]
         
@@ -345,25 +398,24 @@ class GS13CausalDataset(Dataset):
         
         # Create sequences where we predict predict_horizon steps ahead
         for i in range(T - self.seq_length - self.predict_horizon + 1):
-            # Input: seq_length timesteps of all 10 channels
-            x = self.data[:, i:i+self.seq_length]  # (10, seq_length)
+            # Input: seq_length timesteps of all 15 channels
+            x = self.data[self.input_indices, i:i+self.seq_length]  # (15, seq_length)
             
-            # Target: GS13X value predict_horizon steps ahead
-            # GS13X is channel 9 (last channel)
-            y = self.data[9, i+self.seq_length+self.predict_horizon-1]  # scalar
+            # Target: 6 GS13 values predict_horizon steps ahead
+            y = self.data[self.target_indices, i+self.seq_length+self.predict_horizon-1]  # (6,)
             
             X_list.append(x)
             y_list.append(y)
         
         # Convert to arrays
-        X = np.array(X_list, dtype=np.float32)  # (N, 10, seq_length)
-        y = np.array(y_list, dtype=np.float32)  # (N,)
+        X = np.array(X_list, dtype=np.float32)  # (N, 15, seq_length)
+        y = np.array(y_list, dtype=np.float32)  # (N, 6)
         
-        # Transpose X to (N, seq_length, 10) for easier processing
-        X = np.transpose(X, (0, 2, 1))  # (N, seq_length, 10)
+        # Transpose X to (N, seq_length, 15) for easier processing
+        X = np.transpose(X, (0, 2, 1))  # (N, seq_length, 15)
         
-        # Reshape y to (N, 1)
-        y = y.reshape(-1, 1)
+        # Reshape y to (N, 6)
+        y = y.reshape(-1, len(self.target_indices))
         
         # Convert to tensors
         X = torch.from_numpy(X)
@@ -380,7 +432,7 @@ class GS13CausalDataset(Dataset):
 
 class GS13DataModule(L.LightningDataModule):
     """
-    Lightning DataModule for GS13.X causal prediction.
+    Lightning DataModule for GS13 autoregressive forecasting.
     
     Handles:
     - Loading train/val/test datasets
@@ -425,7 +477,7 @@ class GS13DataModule(L.LightningDataModule):
     def setup(self, stage=None):
         """Setup datasets for each stage."""
         if stage == "fit" or stage is None:
-            self.train_dataset = GS13CausalDataset(
+            self.train_dataset = GS13ForecastDataset(
                 "train", 
                 self.time, 
                 self.seq_length,
@@ -433,7 +485,7 @@ class GS13DataModule(L.LightningDataModule):
                 self.normalize,
                 self.data_dir
             )
-            self.val_dataset = GS13CausalDataset(
+            self.val_dataset = GS13ForecastDataset(
                 "val",
                 self.time,
                 self.seq_length,
@@ -443,7 +495,7 @@ class GS13DataModule(L.LightningDataModule):
             )
         
         if stage == "test" or stage is None:
-            self.test_dataset = GS13CausalDataset(
+            self.test_dataset = GS13ForecastDataset(
                 "test",
                 self.time,
                 self.seq_length,
@@ -541,6 +593,22 @@ def run_preprocessing():
         default=default_time or 1381528818,
         validator=validate_positive
     )
+    
+    # Get IFO/Chamber details
+    default_ifo = "L1"
+    default_sts2 = "ITMY"
+    default_chamber = "HAM5"
+    try:
+        if "L1" in mat_file: default_ifo = "L1"
+        if "H1" in mat_file: default_ifo = "H1"
+        if "HAM5" in mat_file: default_chamber = "HAM5"
+        if "HAM6" in mat_file: default_chamber = "HAM6"
+    except:
+        pass
+
+    ifo = get_valid_input("IFO (e.g., L1)", str, default=default_ifo)
+    sts2 = get_valid_input("STS2 (e.g., ITMY)", str, default=default_sts2)
+    chamber = get_valid_input("Chamber (e.g., HAM5)", str, default=default_chamber)
     print()
     
     # ========== PREPROCESSING PARAMETERS ==========
@@ -652,6 +720,7 @@ def run_preprocessing():
     print(f"Input:")
     print(f"  • MAT file: {mat_file}")
     print(f"  • GPS time: {time}")
+    print(f"  • Channels: 15 (based on {ifo}, {sts2}, {chamber})")
     print()
     print(f"Preprocessing:")
     print(f"  • Original rate: {sample_rate} Hz → Target rate: {target_rate} Hz")
@@ -701,17 +770,22 @@ def run_preprocessing():
             skip_seconds=skip_seconds,
             train_frac=train_frac,
             val_frac=val_frac,
-            output_dir=output_dir
+            output_dir=output_dir,
+            ifo=ifo,
+            sts2=sts2,
+            chamber=chamber
         )
         
         preprocessor.save_processed_data(normalize=normalize)
         
         print("\nYou can now train models using:")
         print("  python cli.py fit --config configs/config_LSTM.yaml")
+        print("\nIMPORTANT: Update config_LSTM.yaml and model.py for 15 inputs and 6 outputs!")
         
     except Exception as e:
         print(f"\n❌ Error during preprocessing: {e}")
-        raise
+        import traceback
+        traceback.print_exc()
 
 
 # Allow running as script
