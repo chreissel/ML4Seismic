@@ -3,3 +3,4 @@ metrics/*
 kernel_*/
 *.mat
 bandpass_*
+runs/*
