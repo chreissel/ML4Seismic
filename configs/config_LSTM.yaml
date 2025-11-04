@@ -1,85 +1,56 @@
-seed_everything: 42
-
 trainer:
-  # Device configuration
-  accelerator: auto  # Automatically selects GPU if available
-  
-  # Output directory for logs and checkpoints
+  accelerator: auto  
   default_root_dir: 'runs/lstm/'
-  
-  # Training configuration
   max_epochs: 200
   log_every_n_steps: 10
-  
-  # Gradient clipping (helps with LSTM stability)
   gradient_clip_val: 1.0
-  
-  # Callbacks
   callbacks:
-    # Save best models based on validation loss
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         monitor: val/loss
         mode: min
-        save_top_k: 3  # Keep top 3 models
-        save_last: true  # Also save the last checkpoint
+        save_top_k: 3  
+        save_last: true  
         filename: 'epoch{epoch:02d}-val_loss{val/loss:.4f}'
         auto_insert_metric_name: false
-    
-    # Early stopping to prevent overfitting
     - class_path: lightning.pytorch.callbacks.EarlyStopping
       init_args:
         monitor: val/loss
-        patience: 15  # Stop if no improvement for 15 epochs
+        patience: 15  
         mode: min
-        min_delta: 0.0001  # Minimum change to qualify as improvement
-    
-    # Learning rate monitor
+        min_delta: 0.0001  
     - class_path: lightning.pytorch.callbacks.LearningRateMonitor
       init_args:
         logging_interval: epoch
-  
-  # Logger configuration
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
-      project: gs13-prediction
-      name: lstm-15-to-6-forecast  # CHANGED: New name for new model
+      name: lstm-15-to-6-forecast 
       save_dir: runs/
 
-# ============================================================================
-# Data Configuration
-# ============================================================================
 data:
-  class_path: data.GS13DataModule
+  class_path: data.LitDataModule
   init_args:
-    time: 1381528818
-    seq_length: 240  # 60 seconds at 4 Hz
-    predict_horizon: 4  # Predict 1 second (4 timesteps) ahead
-    
+    mat_file: 'MLdata_L1HAM5_1381528818_4000_matrix_v2.mat'
+    predict_horizon: &predict_horizon 4 
     normalize: True 
-    
     batch_size: 32
-    num_workers: 4
-    pin_memory: true  # Faster data transfer to GPU
-    data_dir: data  # Directory containing preprocessed .npy files
+    num_workers: 1
+    train_channels: ['L1:ISI-HAM5_BLND_GS13X_IN1_DQ']
+    target_channels: ['L1:ISI-HAM5_BLND_GS13X_IN1_DQ']
 
-# ============================================================================
-# Model Configuration
-# ============================================================================
+
 model:
   class_path: model.LSTMForecast
   init_args:
-    input_size: 15  # CHANGED: All 15 channels are inputs
-    hidden_size: 128  # LSTM hidden dimension
-    num_layers: 3  # Number of LSTM layers
-    dropout: 0.2  # Dropout for regularization (0.0-0.5 recommended)
-    output_size: 6  # CHANGED: Predicting all 6 GS13 channels
-    learning_rate: 1e-3  # Initial learning rate
+    input_size: 1  
+    hidden_size: 128  
+    predict_horizon: *predict_horizon
+    num_layers: 3  
+    dropout: 0.2  
+    output_size: 1  
+    learning_rate: 1e-3  
 
-# ============================================================================
-# Optimizer Configuration
-# ============================================================================
 optimizer:
   class_path: torch.optim.AdamW
   init_args:
@@ -87,14 +58,11 @@ optimizer:
     weight_decay: 1e-4  # L2 regularization (set to 0 to disable)
     betas: [0.9, 0.999]  # Adam beta parameters
 
-# ============================================================================
-# Learning Rate Scheduler Configuration
-# ============================================================================
 lr_scheduler:
   class_path: lightning.pytorch.cli.ReduceLROnPlateau
   init_args:
     monitor: val/loss
     mode: min
-    factor: 0.5  # Reduce LR by half when validation loss plateaus
-    patience: 15  # Wait 10 epochs before reducing
-    min_lr: 1e-6  # Minimum learning rate
+    factor: 0.5  
+    patience: 15  
+    min_lr: 1e-6  
