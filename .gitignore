@@ -3,3 +3,5 @@ metrics/*
 kernel_*/
 *.mat
 bandpass_*
+linear/results/
+coherence/results/
