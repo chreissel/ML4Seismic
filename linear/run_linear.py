@@ -41,10 +41,17 @@ def load_split(time, split, data_dir):
     return np.load(path)
 
 
-def split_target_witness(data, target_idx):
-    """Return ``(witnesses (C, N), target (N,))``."""
+def split_target_witness(data, target_idx, witness_idx=None):
+    """Return ``(witnesses (C, N), target (N,))``.
+
+    ``witness_idx`` selects which channels to use as witnesses. If ``None`` all
+    channels except the target are used.
+    """
     target = data[target_idx]
-    witnesses = np.delete(data, target_idx, axis=0)
+    if witness_idx is None:
+        witnesses = np.delete(data, target_idx, axis=0)
+    else:
+        witnesses = data[list(witness_idx)]
     return witnesses, target
 
 
@@ -54,6 +61,10 @@ def main():
     p.add_argument("--time", type=int, default=1381528818, help="data timestamp tag")
     p.add_argument("--data-dir", default="data", help="directory holding the .npy splits")
     p.add_argument("--target-idx", type=int, default=9, help="index of the target channel")
+    p.add_argument("--witness-idx", type=int, nargs="+", default=[0, 3],
+                   help="channel indices to use as witnesses (default: GND_STS_ITMY_X "
+                        "and HAM5_CPS_X, i.e. GND+CPS in the targeted X direction). "
+                        "Pass all 9 witness indices to use every channel.")
     p.add_argument("--fs", type=float, default=4.0, help="sampling rate [Hz]")
     p.add_argument("--n-taps", type=int, default=64, help="FIR taps per witness channel")
     p.add_argument("--alpha", type=float, default=1e-3, help="ridge regularisation strength")
@@ -69,8 +80,10 @@ def main():
     train = load_split(args.time, "train", args.data_dir)
     test = load_split(args.time, "test", args.data_dir)
 
-    Xtr, ytr = split_target_witness(train, args.target_idx)
-    Xte, yte = split_target_witness(test, args.target_idx)
+    Xtr, ytr = split_target_witness(train, args.target_idx, args.witness_idx)
+    Xte, yte = split_target_witness(test, args.target_idx, args.witness_idx)
+    used = [CHANNELS[i] for i in args.witness_idx]
+    print(f"Witness channels: {used}\nTarget channel:  {CHANNELS[args.target_idx]}\n")
 
     model = LinearSubtractor(n_taps=args.n_taps, alpha=args.alpha,
                              causal=not args.acausal)
@@ -91,6 +104,7 @@ def main():
 
     lines = [
         "Linear (Wiener/FIR) noise subtraction -- test segment",
+        f"  witnesses={used}",
         f"  n_taps={args.n_taps}  alpha={args.alpha}  causal={not args.acausal}",
         f"  microseismic band [{args.fmin}, {args.fmax}] Hz:",
         f"    RMS before = {rms_before:.6g}",
