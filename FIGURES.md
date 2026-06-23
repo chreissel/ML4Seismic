@@ -65,10 +65,13 @@ cover all of them (the figure itself shows the X direction).
 ### Fig. `performance` — `linear.reproduce_performance`
 For each of the three filters (`tophat`, `f2`, `causal`) the witnesses and target
 are band-limited, a linear regression (`--n-taps 1` = instantaneous) predicts the
-target, and the panel shows the target ASD (blue), prediction (green), residual
-(orange) and the floor `ASD_target · √(1−γ_M²(f))` (dashed). The top-hat panel is
-the non-realizable best case; the causal panel is the realizable baseline.
-Key options: `--fmin/--fmax`, `--n-taps`, `--alpha`, `--witness`, `--nperseg`.
+target, and the panel shows the target ASD (blue), prediction (green dashed),
+residual (orange) and the multiple-coherence floor `ASD_target · √(1−γ_M²(f))`
+(violet). The x-axis is linear and the legend sits in the last panel, matching the
+paper's plot. The top-hat panel is the non-realizable best case; the causal panel
+is the realizable baseline.
+Key options: `--fmin/--fmax`, `--n-taps`, `--alpha`, `--witness`, `--nperseg`,
+`--no-floor`, `--floor-label`.
 
 ### Fig. `cov` — `coherence.reproduce_cov`
 Three band-averaged pairwise coherence matrices over all channels: broad band at
@@ -82,9 +85,11 @@ Key options: `--broad`, `--narrow`, `--seg-len`, `--t1`, `--t2`, `--channels`,
 `--annotate-threshold` (set `>1` to disable the numbers).
 
 ### Fig. `spike` — `linear.coefficient_evolution`
-Refits the regression every `--step` seconds (window `--win`, default = step),
-records each coefficient and its OLS `±1σ` uncertainty, and plots the `--top`
-most-varying coefficients vs time. Witnesses are globally standardised so the
+Refits the regression every `--step` seconds (window `--win`, default = step) and
+plots the `--top` most-varying coefficients as **stacked offset tracks** (one blue
+trace per channel, channel names on the y-axis, "Scaled Coefficient"), matching the
+paper's plot. Add `--errorbars` to overlay each track's OLS ±1σ band, or
+`--overlay` for the old shared-axis style. Witnesses are globally standardised so the
 coefficients are comparable; the fluctuations exceed the error bands, indicating
 genuine non-stationarity.
 Key options: `--step`, `--win`, `--filter`, `--top`, `--fmin/--fmax`.

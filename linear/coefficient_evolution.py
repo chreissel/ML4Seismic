@@ -60,8 +60,15 @@ def main():
     p.add_argument("--step", type=float, default=10.0, help="refit interval [s]")
     p.add_argument("--win", type=float, default=None,
                    help="fit window length [s] (default = step)")
-    p.add_argument("--top", type=int, default=5,
+    p.add_argument("--top", type=int, default=4,
                    help="number of most-significant coefficients to plot")
+    p.add_argument("--errorbars", action="store_true",
+                   help="overlay +/-1 sigma uncertainty bands on each track")
+    p.add_argument("--overlay", action="store_true",
+                   help="overlay coefficients on one shared axis (old style) instead "
+                        "of stacked offset tracks")
+    p.add_argument("--spacing", type=float, default=7.0,
+                   help="vertical spacing between stacked tracks, in std units")
     p.add_argument("--outdir", default="linear/results")
     args = p.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
@@ -104,19 +111,46 @@ def main():
     score = spread / (median_se + 1e-12)
     order = np.argsort(score)[::-1][:min(args.top, n_w)]
 
-    plt.figure(figsize=(10, 5.5))
-    for j in order:
-        lbl = sd.short_label(args.witness[j])
-        line, = plt.plot(times, betas[:, j], marker="o", ms=3, lw=1, label=lbl)
-        plt.fill_between(times, betas[:, j] - ses[:, j], betas[:, j] + ses[:, j],
-                         color=line.get_color(), alpha=0.2)
-    plt.axhline(0, color="k", lw=0.6, alpha=0.5)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Standardised regression coefficient")
-    plt.title(f"Coefficient evolution predicting {sd.short_label(args.target)} "
-              f"(refit every {args.step:g}s, {args.filter} filter); bands = $\\pm1\\sigma$")
-    plt.legend(fontsize=8, ncol=2)
-    plt.grid(True, alpha=0.3)
+    labels_sel = [sd.short_label(args.witness[j]).replace("_", ".") for j in order]
+
+    if args.overlay:
+        plt.figure(figsize=(10, 5.5))
+        for j, lbl in zip(order, labels_sel):
+            line, = plt.plot(times, betas[:, j], lw=1, label=lbl)
+            if args.errorbars:
+                plt.fill_between(times, betas[:, j] - ses[:, j], betas[:, j] + ses[:, j],
+                                 color=line.get_color(), alpha=0.2)
+        plt.axhline(0, color="k", lw=0.6, alpha=0.5)
+        plt.xlabel("Time [s]")
+        plt.ylabel("Standardised regression coefficient")
+        plt.legend(fontsize=8, ncol=2)
+        plt.grid(True, alpha=0.3)
+    else:
+        # stacked offset tracks, matching the paper's coefficient_evolution figure
+        from matplotlib.ticker import MaxNLocator
+        fig, ax = plt.subplots(figsize=(9, 6))
+        m = len(order)
+        yticks, ylabels = [], []
+        for k, (j, lbl) in enumerate(zip(order, labels_sel)):
+            b = betas[:, j]
+            mu, sigma = np.nanmean(b), np.nanstd(b) + 1e-12
+            z = (b - mu) / sigma                       # scale each track
+            off = (m - 1 - k) * args.spacing           # first selected at top
+            ax.plot(times, z + off, color="tab:blue", lw=0.8)
+            if args.errorbars:
+                e = ses[:, j] / sigma
+                ax.fill_between(times, z - e + off, z + e + off,
+                                color="tab:blue", alpha=0.2)
+            yticks.append(off)
+            ylabels.append(lbl)
+        ax.set_yticks(yticks)
+        ax.set_yticklabels(ylabels)
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel("Scaled Coefficient")
+        ax.margins(x=0.01)
+        ax.xaxis.set_major_locator(MaxNLocator(20))
+        ax.set_axisbelow(True)
+        ax.grid(axis="x", color="0.85", lw=0.6)
     plt.tight_layout()
     for ext in ("png", "pdf"):
         plt.savefig(os.path.join(args.outdir, f"coefficient_evolution.{ext}"), dpi=150)

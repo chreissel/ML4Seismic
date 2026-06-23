@@ -54,6 +54,10 @@ def main():
                    help="FIR taps for the regression (1 = instantaneous linear regression)")
     p.add_argument("--alpha", type=float, default=1e-6, help="ridge strength")
     p.add_argument("--nperseg", type=int, default=1024, help="Welch segment length")
+    p.add_argument("--no-floor", action="store_true",
+                   help="hide the multiple-coherence floor line")
+    p.add_argument("--floor-label", default=r"linear floor $\sqrt{1-\gamma_M^2}$",
+                   help="legend label for the multiple-coherence floor line")
     p.add_argument("--outdir", default="linear/results")
     args = p.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
@@ -69,7 +73,7 @@ def main():
     target_raw = raw[-1]
     nperseg = min(args.nperseg, raw.shape[1])
 
-    fig, axes = plt.subplots(1, 3, figsize=(16, 4.6), sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.4), sharey=True)
     panel = ["(a)", "(b)", "(c)"]
     for ax, kind, tag in zip(axes, sd.FILTER_KINDS, panel):
         # bandpass every channel with this filter, then fit the regression
@@ -83,23 +87,23 @@ def main():
         f, a_t = sd.asd(y, fs, nperseg)
         _, a_p = sd.asd(pred, fs, nperseg)
         _, a_r = sd.asd(resid, fs, nperseg)
-        fc, g2 = sd.multiple_coherence(y, W, fs, nperseg)
-        floor = np.interp(f, fc, np.sqrt(1.0 - g2)) * a_t
 
-        ax.loglog(f, a_t, color="tab:blue", label="GS13 target")
-        ax.loglog(f, a_p, color="tab:green", label="linear prediction")
-        ax.loglog(f, a_r, color="tab:orange", label="residual")
-        ax.loglog(f, floor, color="k", ls="--", lw=1,
-                  label=r"floor $\sqrt{1-\gamma_M^2}$")
-        ax.axvspan(args.fmin, args.fmax, color="grey", alpha=0.15)
-        ax.set_title(f"{tag} {sd.FILTER_LABELS[kind]}")
+        ax.set_yscale("log")
+        ax.plot(f, a_t, color="tab:blue", lw=1.3, label="original")
+        ax.plot(f, a_p, color="tab:green", ls="--", lw=1.3, label="prediction")
+        ax.plot(f, a_r, color="tab:orange", lw=1.3, label="residual")
+        if not args.no_floor:
+            fc, g2 = sd.multiple_coherence(y, W, fs, nperseg)
+            floor = np.interp(f, fc, np.sqrt(1.0 - g2)) * a_t
+            ax.plot(f, floor, color="violet", lw=1.3, label=args.floor_label)
+        ax.set_xlim(max(0.0, args.fmin - 0.02), args.fmax + 0.05)
         ax.set_xlabel("Frequency [Hz]")
+        ax.text(0.03, 0.96, tag, transform=ax.transAxes, va="top", fontsize=11)
         ax.grid(True, which="both", alpha=0.3)
-    axes[0].set_ylabel(r"ASD [arb/$\sqrt{\mathrm{Hz}}$]")
-    axes[0].legend(fontsize=8, loc="lower left")
-    fig.suptitle(f"Linear subtraction of {sd.short_label(args.target)} "
-                 f"({len(args.witness)} CPS+GND witnesses)")
+    axes[0].set_ylabel(r"ASD [m/$\sqrt{\mathrm{Hz}}$]")
+    axes[-1].legend(fontsize=9, loc="lower left")
     fig.tight_layout()
+    print("panels: (a) {}  (b) {}  (c) {}".format(*[sd.FILTER_LABELS[k] for k in sd.FILTER_KINDS]))
     for ext in ("png", "pdf"):
         fig.savefig(os.path.join(args.outdir, f"linear_performance.{ext}"), dpi=150)
     plt.close(fig)
