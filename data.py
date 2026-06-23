@@ -142,15 +142,23 @@ class LSTMDataModule(GenericDataModule):
     """Witness->target regression data for the LSTM (reads the .npy splits).
 
     ``witness_channels`` selects the input sensors and ``target_channel`` the
-    channel to predict. By default the witnesses are the GND and CPS sensors in
-    the *targeted* (X) direction; the non-targeted Y/Z directions are dropped.
-    Set ``witness_channels`` to add/remove channels -- keep ``input_size`` of the
+    channel to predict. By default the witnesses are all GND and CPS sensors in
+    every direction (X/Y/Z translational + RX/RY/RZ rotational); the GS13 target
+    is the only output and no other GS direction is used as input. Set
+    ``witness_channels`` to add/remove channels -- keep ``input_size`` of the
     model in sync with ``len(witness_channels)``.
     """
 
     def __init__(self, time,
                  witness_channels=('L1:ISI-GND_STS_ITMY_X_DQ',
-                                   'L1:ISI-HAM5_SCSUM_CPS_X_IN_DQ'),
+                                   'L1:ISI-GND_STS_ITMY_Y_DQ',
+                                   'L1:ISI-GND_STS_ITMY_Z_DQ',
+                                   'L1:ISI-HAM5_SCSUM_CPS_X_IN_DQ',
+                                   'L1:ISI-HAM5_SCSUM_CPS_Y_IN_DQ',
+                                   'L1:ISI-HAM5_SCSUM_CPS_Z_IN_DQ',
+                                   'L1:ISI-HAM5_BLND_CPSRX_IN1_DQ',
+                                   'L1:ISI-HAM5_BLND_CPSRY_IN1_DQ',
+                                   'L1:ISI-HAM5_BLND_CPSRZ_IN1_DQ'),
                  target_channel='L1:ISI-HAM5_BLND_GS13X_IN1_DQ',
                  seq_length=240, predict_horizon=4, normalize=True, **kwargs):
         super().__init__(**kwargs)

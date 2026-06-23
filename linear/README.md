@@ -29,15 +29,15 @@ control computers; use `--acausal` for an offline centered filter.
 python -m linear.run_linear                       # defaults (n_taps=64, ridge alpha=1e-3)
 python -m linear.run_linear --n-taps 128 --alpha 1e-2
 python -m linear.run_linear --acausal             # non-causal (offline) filter
-python -m linear.run_linear --witness-idx 0 1 2 3 4 5 6 7 8   # use all witnesses
+python -m linear.run_linear --witness-idx 0 3     # only X-direction witnesses
 ```
 
 ### Witness channel selection
 
-By default the filter uses **GND + CPS in the targeted (X) direction**
-(`--witness-idx 0 3` → `GND_STS_ITMY_X`, `HAM5_CPS_X`), matching the witness-only
-LSTM (`configs/config_LSTM.yaml`); the non-targeted Y/Z directions are dropped.
-The channel indices follow `data_prep.py`:
+By default the filter uses **all GND and CPS directions** (X/Y/Z translational +
+RX/RY/RZ rotational, `--witness-idx 0 1 2 3 4 5 6 7 8`), matching the witness-only
+LSTM (`configs/config_LSTM.yaml`). The GS13 target (idx 9) is never used as a
+witness. The channel indices follow `data_prep.py`:
 
 | idx | channel | idx | channel |
 |-----|---------|-----|---------|
@@ -47,8 +47,8 @@ The channel indices follow `data_prep.py`:
 | 3 | HAM5_CPS_X | 8 | HAM5_CPSRZ |
 | 4 | HAM5_CPS_Y | 9 | HAM5_GS13X (target) |
 
-Pass `--witness-idx` to change the set (e.g. `--witness-idx 0 1 2 3 4 5 6 7 8`
-for all witnesses).
+Pass `--witness-idx` to change the set (e.g. `--witness-idx 0 3` for only the
+targeted X-direction witnesses).
 
 Key options: `--time`, `--data-dir`, `--target-idx`, `--witness-idx`, `--fs`,
 `--n-taps`, `--alpha`, `--acausal`, `--fmin/--fmax` (microseismic band), `--outdir`.

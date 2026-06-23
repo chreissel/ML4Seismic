@@ -34,10 +34,18 @@ data:
   class_path: data.LSTMDataModule
   init_args:
     time: 1381528818
-    # GND + CPS in the targeted (X) direction; drop non-targeted Y/Z directions.
+    # All GND and CPS directions (X/Y/Z translational + RX/RY/RZ rotational).
+    # The GS13 target is the only output; no other GS direction is used as input.
     witness_channels:
       - 'L1:ISI-GND_STS_ITMY_X_DQ'
+      - 'L1:ISI-GND_STS_ITMY_Y_DQ'
+      - 'L1:ISI-GND_STS_ITMY_Z_DQ'
       - 'L1:ISI-HAM5_SCSUM_CPS_X_IN_DQ'
+      - 'L1:ISI-HAM5_SCSUM_CPS_Y_IN_DQ'
+      - 'L1:ISI-HAM5_SCSUM_CPS_Z_IN_DQ'
+      - 'L1:ISI-HAM5_BLND_CPSRX_IN1_DQ'
+      - 'L1:ISI-HAM5_BLND_CPSRY_IN1_DQ'
+      - 'L1:ISI-HAM5_BLND_CPSRZ_IN1_DQ'
     target_channel: 'L1:ISI-HAM5_BLND_GS13X_IN1_DQ'
     seq_length: 240          # 60 s at 4 Hz
     predict_horizon: 4       # predict the most recent 1 s of the target
@@ -64,7 +72,7 @@ lr_scheduler:
 model:
   class_path: model.LSTMForecast
   init_args:
-    input_size: 2            # == len(witness_channels)
+    input_size: 9            # == len(witness_channels)
     hidden_size: 128
     predict_horizon: 4
     num_layers: 3

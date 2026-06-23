@@ -61,10 +61,11 @@ def main():
     p.add_argument("--time", type=int, default=1381528818, help="data timestamp tag")
     p.add_argument("--data-dir", default="data", help="directory holding the .npy splits")
     p.add_argument("--target-idx", type=int, default=9, help="index of the target channel")
-    p.add_argument("--witness-idx", type=int, nargs="+", default=[0, 3],
-                   help="channel indices to use as witnesses (default: GND_STS_ITMY_X "
-                        "and HAM5_CPS_X, i.e. GND+CPS in the targeted X direction). "
-                        "Pass all 9 witness indices to use every channel.")
+    p.add_argument("--witness-idx", type=int, nargs="+",
+                   default=[0, 1, 2, 3, 4, 5, 6, 7, 8],
+                   help="channel indices to use as witnesses (default: all GND and CPS "
+                        "directions, i.e. X/Y/Z + RX/RY/RZ). The GS13 target (idx 9) is "
+                        "never used as a witness.")
     p.add_argument("--fs", type=float, default=4.0, help="sampling rate [Hz]")
     p.add_argument("--n-taps", type=int, default=64, help="FIR taps per witness channel")
     p.add_argument("--alpha", type=float, default=1e-3, help="ridge regularisation strength")
