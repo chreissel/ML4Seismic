@@ -15,5 +15,12 @@ The pipeline automatically checks for GPUs and submits accordingly. While GPUs a
 ### Evaluation
 The `jupyter` notebook [eval.ipynb](eval.ipynb) implements basic model loading and evaluation alongside diagnostics plots.
 
+### Linear baseline and coherence analysis
+Two standalone analyses accompanying the paper [*Microseismic Noise Mitigation with Machine Learning for Advanced LIGO*](https://arxiv.org/abs/2511.19682) live in their own subfolders:
+- [linear/](linear) — the linear (Wiener / FIR least-squares) noise-subtraction baseline that the ML models are compared against. Run with `python -m linear.run_linear`.
+- [coherence/](coherence) — the coherence analysis between witness and target channels, including the time-dependent cross-coupling in the microseismic band. Run with `python -m coherence.run_coherence`.
+
+See each folder's `README.md` for details.
+
 ## Where do we stand?
 The code should be ready and easy to run many (parallel) trainings. We plan to add to the code further, e.g., incorporating data preparation and postprocessing directly into the pipeline. Postprocessing is currently done manually in [eval.ipynb](eval.ipynb). Furthermore, we are working on making the models causal, so keep updated! 
