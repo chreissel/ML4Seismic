@@ -16,7 +16,7 @@ the dict below). A JSON file is simply ``{"L1:...": 0, "L1:...": 1, ...}``.
 
 import json
 import numpy as np
-from scipy.signal import butter, filtfilt, lfilter, welch, csd
+from scipy.signal import butter, sosfilt, sosfiltfilt, welch, csd
 
 # name -> column index in the raw .mat 'data_matrix' (from data_prep.py).
 DEFAULT_CHANNEL_MAP = {
@@ -98,11 +98,13 @@ def bandpass(x, fs, f1, f2, kind="causal", order=4):
         mask = (freqs >= f1) & (freqs <= f2)
         out = np.fft.irfft(np.fft.rfft(x2, axis=1) * mask, n=n, axis=1)
     elif kind == "f2":
-        b, a = butter(1, [f1, f2], btype="band", fs=fs)
-        out = filtfilt(b, a, x2, axis=1)            # zero-phase => non-causal
+        # 1st-order band (~f^2 two-sided roll-off), zero-phase => non-causal.
+        # second-order sections stay stable for narrow low-frequency bands.
+        sos = butter(1, [f1, f2], btype="band", fs=fs, output="sos")
+        out = sosfiltfilt(sos, x2, axis=1)
     elif kind == "causal":
-        b, a = butter(order, [f1, f2], btype="band", fs=fs)
-        out = lfilter(b, a, x2, axis=1)             # causal
+        sos = butter(order, [f1, f2], btype="band", fs=fs, output="sos")
+        out = sosfilt(sos, x2, axis=1)              # causal
     else:
         raise ValueError(f"unknown filter kind: {kind}")
     return out[0] if squeeze else out

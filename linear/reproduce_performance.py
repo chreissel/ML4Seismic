@@ -7,11 +7,16 @@ shows the linear-subtraction floor ``ASD_target * sqrt(1 - gamma_M^2(f))`` set b
 the multiple coherence against all witnesses -- the residual bound for any linear
 filter.
 
+The fourth (pink) "original residual" line is a *measured* channel read from the
+data; pass its name with --original-residual to reproduce the paper's figure. When
+it is not given, the multiple-coherence floor is drawn instead as the 4th line.
+
 Usage
 -----
-    # raw broadband .mat (full fidelity)
-    python -m linear.reproduce_performance --mat MLdata_..._v2.mat
-    # quick check on the shipped narrowband .npy
+    # raw broadband .mat with the measured original-residual channel (full figure)
+    python -m linear.reproduce_performance --mat MLdata_..._v2.mat \
+        --original-residual 'L1:ISI-HAM5_BLND_GS13X_IN1_DQ'
+    # quick check on the shipped narrowband .npy (floor used as 4th line)
     python -m linear.reproduce_performance --npy data/train_1381528818.npy
 
 Set --target / --witness to channel names, or --channel-map map.json to point at
@@ -54,8 +59,13 @@ def main():
                    help="FIR taps for the regression (1 = instantaneous linear regression)")
     p.add_argument("--alpha", type=float, default=1e-6, help="ridge strength")
     p.add_argument("--nperseg", type=int, default=1024, help="Welch segment length")
+    p.add_argument("--original-residual",
+                   help="channel name of the measured original residual to overlay as "
+                        "the pink line (read from the same data, band-limited per panel)")
     p.add_argument("--no-floor", action="store_true",
                    help="hide the multiple-coherence floor line")
+    p.add_argument("--show-floor", action="store_true",
+                   help="also draw the coherence floor when --original-residual is set")
     p.add_argument("--floor-label", default=r"linear floor $\sqrt{1-\gamma_M^2}$",
                    help="legend label for the multiple-coherence floor line")
     p.add_argument("--outdir", default="linear/results")
@@ -64,13 +74,17 @@ def main():
 
     cmap = sd.load_channel_map(args.channel_map)
     channels = list(args.witness) + [args.target]
+    if args.original_residual:
+        channels.append(args.original_residual)
     if args.mat:
         raw, fs = sd.load_mat(args.mat, channels, cmap, sample_rate=args.sample_rate)
     else:
         raw = sd.load_npy(args.npy, channels, cmap)
         fs = args.npy_fs
-    witnesses_raw = raw[:-1]
-    target_raw = raw[-1]
+    n_w = len(args.witness)
+    witnesses_raw = raw[:n_w]
+    target_raw = raw[n_w]
+    orig_resid_raw = raw[n_w + 1] if args.original_residual else None
     nperseg = min(args.nperseg, raw.shape[1])
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.4), sharey=True)
@@ -92,10 +106,15 @@ def main():
         ax.plot(f, a_t, color="tab:blue", lw=1.3, label="original")
         ax.plot(f, a_p, color="tab:green", ls="--", lw=1.3, label="prediction")
         ax.plot(f, a_r, color="tab:orange", lw=1.3, label="residual")
-        if not args.no_floor:
+        if orig_resid_raw is not None:
+            yo = sd.bandpass(orig_resid_raw, fs, args.fmin, args.fmax, kind=kind)
+            _, a_o = sd.asd(yo, fs, nperseg)
+            ax.plot(f, a_o, color="violet", lw=1.3, label="original residual")
+        if args.show_floor or (orig_resid_raw is None and not args.no_floor):
             fc, g2 = sd.multiple_coherence(y, W, fs, nperseg)
             floor = np.interp(f, fc, np.sqrt(1.0 - g2)) * a_t
-            ax.plot(f, floor, color="violet", lw=1.3, label=args.floor_label)
+            fcolor, fstyle = ("black", ":") if orig_resid_raw is not None else ("violet", "-")
+            ax.plot(f, floor, color=fcolor, ls=fstyle, lw=1.2, label=args.floor_label)
         ax.set_xlim(max(0.0, args.fmin - 0.02), args.fmax + 0.05)
         ax.set_xlabel("Frequency [Hz]")
         ax.text(0.03, 0.96, tag, transform=ax.transAxes, va="top", fontsize=11)

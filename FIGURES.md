@@ -66,12 +66,22 @@ cover all of them (the figure itself shows the X direction).
 For each of the three filters (`tophat`, `f2`, `causal`) the witnesses and target
 are band-limited, a linear regression (`--n-taps 1` = instantaneous) predicts the
 target, and the panel shows the target ASD (blue), prediction (green dashed),
-residual (orange) and the multiple-coherence floor `ASD_target · √(1−γ_M²(f))`
-(violet). The x-axis is linear and the legend sits in the last panel, matching the
-paper's plot. The top-hat panel is the non-realizable best case; the causal panel
-is the realizable baseline.
-Key options: `--fmin/--fmax`, `--n-taps`, `--alpha`, `--witness`, `--nperseg`,
-`--no-floor`, `--floor-label`.
+residual (orange) and the **measured original residual** (pink). The pink line is a
+real channel read from the data -- pass its name with `--original-residual` to
+reproduce the paper's figure:
+
+```bash
+python -m linear.reproduce_performance --mat your.mat \
+    --original-residual 'L1:ISI-...'   # measured original-residual channel
+```
+
+When `--original-residual` is omitted the multiple-coherence floor
+`ASD_target · √(1−γ_M²(f))` is drawn as the 4th line instead (add `--show-floor`
+to draw the floor alongside the measured one). The x-axis is linear and the legend
+sits in the last panel, matching the paper. The top-hat panel is the non-realizable
+best case; the causal panel is the realizable baseline.
+Key options: `--original-residual`, `--fmin/--fmax`, `--n-taps`, `--alpha`,
+`--witness`, `--nperseg`, `--no-floor`, `--show-floor`, `--floor-label`.
 
 ### Fig. `cov` — `coherence.reproduce_cov`
 Three band-averaged pairwise coherence matrices over all channels: broad band at
