@@ -12,6 +12,7 @@ witness contribution -- the link between this analysis and the linear baseline.
 
 import numpy as np
 from scipy.signal import coherence as _scipy_coherence
+from scipy.signal import welch as _welch, csd as _csd
 
 
 def pair_coherence(x, y, fs, nperseg=None):
@@ -58,6 +59,43 @@ def coherence_matrix(data, fs, fmin, fmax, nperseg=None):
             val = band_average(f, cxy, fmin, fmax)
             M[i, j] = M[j, i] = val
     return M
+
+
+def coherency_matrices(data, fs, fmin, fmax, nperseg=None):
+    """Band-averaged coherence and *signed* coherency for every channel pair.
+
+    Returns ``(coh, signed)`` two (C, C) matrices:
+      * ``coh[i, j]``   = band-averaged magnitude-squared coherence |gamma|^2 in
+        [0, 1] (use for the cell colour).
+      * ``signed[i, j]``= band-averaged real part of the complex coherency
+        ``gamma(f) = S_xy / sqrt(S_xx S_yy)`` in [-1, 1] (use for the annotated
+        number -- it carries the sign of the coupling).
+    Diagonals are 1.
+    """
+    C = data.shape[0]
+    if nperseg is None:
+        nperseg = min(data.shape[1], 256)
+    # per-channel auto-spectra
+    psd = []
+    for i in range(C):
+        f, p = _welch(data[i], fs=fs, nperseg=nperseg)
+        psd.append(p)
+    psd = np.array(psd)
+    mask = (f >= fmin) & (f <= fmax)
+
+    coh = np.eye(C)
+    signed = np.eye(C)
+    for i in range(C):
+        for j in range(i + 1, C):
+            _, sij = _csd(data[i], data[j], fs=fs, nperseg=nperseg)
+            denom = np.sqrt(psd[i] * psd[j])
+            denom[denom == 0] = np.nan
+            gamma = sij / denom                       # complex coherency
+            c = float(np.nanmean(np.abs(gamma[mask]) ** 2)) if np.any(mask) else np.nan
+            s = float(np.nanmean(np.real(gamma[mask]))) if np.any(mask) else np.nan
+            coh[i, j] = coh[j, i] = c
+            signed[i, j] = signed[j, i] = s
+    return coh, signed
 
 
 def time_dependent_coherence(data, fs, bands, n_segments, target_idx,

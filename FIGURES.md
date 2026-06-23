@@ -73,8 +73,13 @@ Key options: `--fmin/--fmax`, `--n-taps`, `--alpha`, `--witness`, `--nperseg`.
 ### Fig. `cov` — `coherence.reproduce_cov`
 Three band-averaged pairwise coherence matrices over all channels: broad band at
 `--t1`, narrow band at `--t1`, and narrow band at `--t2`. The narrow-band panels
-differ between times, revealing the time-dependent cross coupling.
-Key options: `--broad`, `--narrow`, `--seg-len`, `--t1`, `--t2`, `--channels`.
+differ between times, revealing the time-dependent cross coupling. As in the
+original plot, each significant cell is annotated with the **signed coherency**
+(real part of `S_xy/√(S_xx S_yy)`, in [-1, 1]) while the colour shows the
+magnitude-squared coherence; cells below `--annotate-threshold` (default 0.7) are
+left blank to declutter.
+Key options: `--broad`, `--narrow`, `--seg-len`, `--t1`, `--t2`, `--channels`,
+`--annotate-threshold` (set `>1` to disable the numbers).
 
 ### Fig. `spike` — `linear.coefficient_evolution`
 Refits the regression every `--step` seconds (window `--win`, default = step),

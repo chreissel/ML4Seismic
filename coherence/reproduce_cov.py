@@ -26,7 +26,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import seismic_data as sd
-from .coherence import coherence_matrix
+from .coherence import coherency_matrices
 
 
 def main():
@@ -48,6 +48,9 @@ def main():
     p.add_argument("--narrow", type=float, nargs=2, default=[0.1, 0.3],
                    help="narrow band [Hz]")
     p.add_argument("--nperseg", type=int, default=512)
+    p.add_argument("--annotate-threshold", type=float, default=0.7,
+                   help="annotate cells whose |signed coherency| >= this (0 = all, "
+                        ">1 = none)")
     p.add_argument("--outdir", default="coherence/results")
     args = p.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
@@ -76,17 +79,29 @@ def main():
         (seg1, narrow, f"(b) {narrow[0]:g}-{narrow[1]:g} Hz, t={args.t1:g}s"),
         (seg2, narrow, f"(c) {narrow[0]:g}-{narrow[1]:g} Hz, t={args.t2:g}s"),
     ]
+    n = len(labels)
+    fs_annot = max(4, min(8, int(90 / n)))   # shrink the numbers as channels grow
     fig, axes = plt.subplots(1, 3, figsize=(17, 5.4))
     im = None
     for ax, (seg, band, title) in zip(axes, panels):
-        M = coherence_matrix(seg, fs, band[0], band[1], nperseg)
-        im = ax.imshow(M, vmin=0, vmax=1, cmap="viridis")
+        coh, signed = coherency_matrices(seg, fs, band[0], band[1], nperseg)
+        im = ax.imshow(coh, vmin=0, vmax=1, cmap="viridis")
+        # annotate the significant cells with the signed coherency (skip diagonal)
+        for i in range(n):
+            for j in range(n):
+                if i == j:
+                    continue
+                v = signed[i, j]
+                if np.isfinite(v) and abs(v) >= args.annotate_threshold:
+                    ax.text(j, i, f"{v:.2f}", ha="center", va="center",
+                            fontsize=fs_annot,
+                            color="black" if coh[i, j] > 0.6 else "white")
         ax.set_title(title, fontsize=11)
-        ax.set_xticks(range(len(labels)))
+        ax.set_xticks(range(n))
         ax.set_xticklabels(labels, rotation=90, fontsize=7)
-        ax.set_yticks(range(len(labels)))
+        ax.set_yticks(range(n))
         ax.set_yticklabels(labels if ax is axes[0] else [], fontsize=7)
-    fig.colorbar(im, ax=axes, fraction=0.025, pad=0.02, label="mean coherence")
+    fig.colorbar(im, ax=axes, fraction=0.025, pad=0.02, label="Average Coherence")
     fig.suptitle("Average pairwise coherence: broad band vs microseismic band at two times")
     for ext in ("png", "pdf"):
         fig.savefig(os.path.join(args.outdir, f"coherence_cov.{ext}"), dpi=150,

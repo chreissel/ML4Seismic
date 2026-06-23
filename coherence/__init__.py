@@ -11,6 +11,7 @@ from .coherence import (
     pair_coherence,
     band_average,
     coherence_matrix,
+    coherency_matrices,
     time_dependent_coherence,
 )
 
@@ -18,5 +19,6 @@ __all__ = [
     "pair_coherence",
     "band_average",
     "coherence_matrix",
+    "coherency_matrices",
     "time_dependent_coherence",
 ]
