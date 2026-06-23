@@ -33,7 +33,9 @@ Two standalone analyses accompanying the paper [*Microseismic Noise Mitigation w
 - [linear/](linear) — the linear (Wiener / FIR least-squares) noise-subtraction baseline that the ML models are compared against. By default it uses the same all-direction GND+CPS witnesses as the LSTM. Run with `python -m linear.run_linear`.
 - [coherence/](coherence) — the coherence analysis between witness and target channels, including the time-dependent cross-coupling in the microseismic band. Run with `python -m coherence.run_coherence`.
 
-See each folder's `README.md` for details.
+See each folder's `README.md` for details. To recreate the paper's linear-analysis
+figures (3-panel ASD with the multiple-coherence floor, the coherence matrices,
+and the coefficient-evolution plot) see [FIGURES.md](FIGURES.md).
 
 ## Where do we stand?
 The code should be ready and easy to run many (parallel) trainings. We plan to add to the code further, e.g., incorporating data preparation and postprocessing directly into the pipeline. Postprocessing is currently done manually in [eval.ipynb](eval.ipynb). Furthermore, we are working on making the models causal, so keep updated! 

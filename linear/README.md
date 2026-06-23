@@ -64,6 +64,13 @@ Key options: `--time`, `--data-dir`, `--target-idx`, `--witness-idx`, `--fs`,
 The reduction factor in the 0.1–0.3 Hz band quantifies the linear performance;
 the ML models aim to exceed it where nonlinear cross-couplings dominate.
 
+## Paper figures
+
+`reproduce_performance.py` builds the 3-panel ASD figure (top-hat / f² / causal
+filters) with the linear prediction and the √(1−γ_M²) coherence floor;
+`coefficient_evolution.py` builds the rolling-refit coefficient-evolution figure.
+See [../FIGURES.md](../FIGURES.md).
+
 ## Programmatic API
 
 ```python

@@ -54,6 +54,11 @@ the default "broad" band here is the available 0.1–2 Hz. For the paper's full
 | `coherence_time.png`    | mean coherence over time, broad vs microseismic |
 | `summary.txt`           | band-averaged coherence values + time series |
 
+## Paper figure
+
+`reproduce_cov.py` builds the 3-panel coherence-matrix figure (broad band, narrow
+band at t1, narrow band at t2). See [../FIGURES.md](../FIGURES.md).
+
 ## Programmatic API
 
 ```python
