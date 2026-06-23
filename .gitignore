@@ -1,5 +1,9 @@
+__pycache__/
 */__pycache__/*
 metrics/*
+runs/
+lightning_logs/
+wandb/
 kernel_*/
 *.mat
 bandpass_*

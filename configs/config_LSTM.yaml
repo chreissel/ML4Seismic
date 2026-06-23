@@ -1,0 +1,81 @@
+# LSTM witness-only regression: predict the GS13 (X) target from the GND/CPS
+# witness sensors in the targeted direction. (Previously this model was an
+# autoregressive forecaster of GS13 from its own past.)
+trainer:
+  accelerator: auto
+  default_root_dir: 'runs/lstm/'
+  max_epochs: 200
+  log_every_n_steps: 10
+  gradient_clip_val: 1.0
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/loss
+        mode: min
+        save_top_k: 3
+        save_last: true
+        filename: 'epoch{epoch:02d}-val_loss{val/loss:.4f}'
+        auto_insert_metric_name: false
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/loss
+        patience: 15
+        mode: min
+        min_delta: 0.0001
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: epoch
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      name: lstm-witness-regression
+
+data:
+  class_path: data.LSTMDataModule
+  init_args:
+    time: 1381528818
+    # All GND and CPS directions (X/Y/Z translational + RX/RY/RZ rotational).
+    # The GS13 target is the only output; no other GS direction is used as input.
+    witness_channels:
+      - 'L1:ISI-GND_STS_ITMY_X_DQ'
+      - 'L1:ISI-GND_STS_ITMY_Y_DQ'
+      - 'L1:ISI-GND_STS_ITMY_Z_DQ'
+      - 'L1:ISI-HAM5_SCSUM_CPS_X_IN_DQ'
+      - 'L1:ISI-HAM5_SCSUM_CPS_Y_IN_DQ'
+      - 'L1:ISI-HAM5_SCSUM_CPS_Z_IN_DQ'
+      - 'L1:ISI-HAM5_BLND_CPSRX_IN1_DQ'
+      - 'L1:ISI-HAM5_BLND_CPSRY_IN1_DQ'
+      - 'L1:ISI-HAM5_BLND_CPSRZ_IN1_DQ'
+    target_channel: 'L1:ISI-HAM5_BLND_GS13X_IN1_DQ'
+    seq_length: 240          # 60 s at 4 Hz
+    predict_horizon: 4       # predict the most recent 1 s of the target
+    normalize: True
+    batch_size: 32
+    num_workers: 1
+
+optimizer:
+  class_path: torch.optim.AdamW
+  init_args:
+    lr: 1e-3
+    weight_decay: 1e-4
+    betas: [0.9, 0.999]
+
+lr_scheduler:
+  class_path: lightning.pytorch.cli.ReduceLROnPlateau
+  init_args:
+    monitor: val/loss
+    mode: min
+    factor: 0.5
+    patience: 15
+    min_lr: 1e-6
+
+model:
+  class_path: model.LSTMForecast
+  init_args:
+    input_size: 9            # == len(witness_channels)
+    hidden_size: 128
+    predict_horizon: 4
+    num_layers: 3
+    dropout: 0.2
+    output_size: 1
+    learning_rate: 1e-3

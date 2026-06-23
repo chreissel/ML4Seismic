@@ -15,9 +15,22 @@ The pipeline automatically checks for GPUs and submits accordingly. While GPUs a
 ### Evaluation
 The `jupyter` notebook [eval.ipynb](eval.ipynb) implements basic model loading and evaluation alongside diagnostics plots.
 
+### LSTM (witness-only regression)
+The `LSTMForecast` model ([model.py](model.py)) predicts the GS13 target from the
+witness sensors. It is configured as a **witness-only regressor** (it ingests the
+GND/CPS witness channels and now-casts the target), rather than an autoregressive
+forecaster of the target's own past. By default it uses all GND + CPS directions
+(X/Y/Z + RX/RY/RZ rotational); no other GS direction is used as input. The witness
+set is the `witness_channels` list in
+[configs/config_LSTM.yaml](configs/config_LSTM.yaml) (keep the model's
+`input_size` equal to its length). Train with:
+```
+python cli.py fit -c configs/config_LSTM.yaml
+```
+
 ### Linear baseline and coherence analysis
 Two standalone analyses accompanying the paper [*Microseismic Noise Mitigation with Machine Learning for Advanced LIGO*](https://arxiv.org/abs/2511.19682) live in their own subfolders:
-- [linear/](linear) — the linear (Wiener / FIR least-squares) noise-subtraction baseline that the ML models are compared against. Run with `python -m linear.run_linear`.
+- [linear/](linear) — the linear (Wiener / FIR least-squares) noise-subtraction baseline that the ML models are compared against. By default it uses the same all-direction GND+CPS witnesses as the LSTM. Run with `python -m linear.run_linear`.
 - [coherence/](coherence) — the coherence analysis between witness and target channels, including the time-dependent cross-coupling in the microseismic band. Run with `python -m coherence.run_coherence`.
 
 See each folder's `README.md` for details.
